@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const db = require('./server/db.js');
 
 module.exports = app;
 
@@ -20,19 +21,67 @@ app.use(bodyParser.json());
 const apiRouter = require('./server/api');
 app.use('/api', apiRouter);
 
-app.get('/api/minions', (req,res,next) => {
-  req.send(getAllFromDatabase('minions'));
-});
-
-app.post('/api/minions', (req,res,next) => {
-  const minion = req.name;
-  if (minion) {
-    responseBody = addToDatabase(minion, req);
-    res.send(responseBody);
+app.use('/api/:name', (req,res,next) => {
+  if (req.params.name) {
+    req.requestType = req.params.name;
+    next();
   } else {
-    res.status(400).send();
+    res.status(404).send();
   };
 });
+
+app.use('/api/:name/:id', (req,res,next) => {
+  if (req.params.id) {
+    const checkId = db.getFromDatabaseById(req.requestType, req.params.id);
+    if (checkId !== -1) {
+      req.requestId = req.params.id;
+      next();
+    } else {
+      res.status(404).send();
+    };
+  } else {
+    res.status(404).send();
+  };
+});
+
+app.get(['/api/minions', '/api/ideas', '/api/meetings'], (req,res,next) => {
+  res.send(db.getAllFromDatabase(req.requestType));
+});
+
+app.post(['/api/minions', '/api/ideas'], (req,res,next) => {
+  responseBody = db.addToDatabase(req.requestType, req);
+  res.send(responseBody);
+  next();
+});
+
+app.get(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
+  res.send(db.getFromDatabaseById(req.requestType, req.requestId));
+});
+
+app.put(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
+  responseBody = db.updateInstanceInDatabase(req.requestType, req.requestId);
+  if (responseBody) {
+    res.send(responseBody);
+  } else {
+    res.status(404).send();
+  };
+});
+
+app.delete(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
+  const name = req.name;
+  responseBody = db.deleteFromDatabaseById(name, req.givenId);
+  if (responseBody) {
+    res.statusSend(204);
+  } else {
+    res.status(404).send();
+  };
+});
+
+app.delete('/api/meetings', (req,res,next) => {
+  responseBody = db.deleteAllFromDatabase('meetings')
+})
+
+
 
 
 // This conditional is here for testing purposes:
