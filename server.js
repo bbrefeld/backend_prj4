@@ -3,6 +3,7 @@ const app = express();
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const db = require('./server/db.js');
+const checkMillionDollarIdea = require('./server/checkMillionDollarIdea.js');
 
 module.exports = app;
 
@@ -33,7 +34,7 @@ app.use('/api/:name', (req,res,next) => {
 app.use('/api/:name/:id', (req,res,next) => {
   if (req.params.id) {
     const checkId = db.getFromDatabaseById(req.requestType, req.params.id);
-    if (checkId !== -1) {
+    if (checkId) {
       req.requestId = req.params.id;
       next();
     } else {
@@ -44,22 +45,46 @@ app.use('/api/:name/:id', (req,res,next) => {
   };
 });
 
+// get all
 app.get(['/api/minions', '/api/ideas', '/api/meetings'], (req,res,next) => {
   res.send(db.getAllFromDatabase(req.requestType));
 });
 
-app.post(['/api/minions', '/api/ideas'], (req,res,next) => {
-  responseBody = db.addToDatabase(req.requestType, req);
-  res.send(responseBody);
-  next();
+// post
+app.post('/api/minions', (req,res,next) => {
+  responseBody = db.addToDatabase(req.requestType, req.body);
+  if (responseBody) {
+    res.status(201).send(responseBody);
+    next();
+  } else {
+    res.status(404).send();
+  };
 });
 
+app.post('/api/ideas', checkMillionDollarIdea, (req,res,next) => {
+  responseBody = db.addToDatabase(req.requestType, req.body);
+  if (responseBody) {
+    res.status(201).send(responseBody);
+    next();
+  } else {
+    res.status(404).send();
+  };
+});
+
+app.post('/api/meetings', (req,res,next) => {
+  meeting = db.createMeeting();
+  db.addToDatabase(req.requestType, meeting);
+  res.status(201).send(meeting);
+})
+
+// get by id
 app.get(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
   res.send(db.getFromDatabaseById(req.requestType, req.requestId));
 });
 
-app.put(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
-  responseBody = db.updateInstanceInDatabase(req.requestType, req.requestId);
+// put
+app.put('/api/minions/:id', (req,res,next) => {
+  responseBody = db.updateInstanceInDatabase(req.requestType, req.body);
   if (responseBody) {
     res.send(responseBody);
   } else {
@@ -67,11 +92,20 @@ app.put(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
   };
 });
 
-app.delete(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
-  const name = req.name;
-  responseBody = db.deleteFromDatabaseById(name, req.givenId);
+app.put('/api/ideas/:id', checkMillionDollarIdea, (req,res,next) => {
+  responseBody = db.updateInstanceInDatabase(req.requestType, req.body);
   if (responseBody) {
-    res.statusSend(204);
+    res.send(responseBody);
+  } else {
+    res.status(404).send();
+  };
+});
+
+// delete
+app.delete(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
+  responseBody = db.deleteFromDatabasebyId(req.requestType, req.requestId);
+  if (responseBody) {
+    res.status(204).send();
   } else {
     res.status(404).send();
   };
@@ -79,6 +113,7 @@ app.delete(['/api/minions/:id', '/api/ideas/:id'], (req,res,next) => {
 
 app.delete('/api/meetings', (req,res,next) => {
   responseBody = db.deleteAllFromDatabase('meetings')
+  res.status(204).send();
 })
 
 
